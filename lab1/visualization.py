@@ -69,7 +69,33 @@ def box_to_corner(box: np.ndarray) -> np.ndarray:  #TO DO
     # TODO: compute coordinate of 8 corners in the frame relative to which the `box` is expressed
     # TODO: Notice the order of 8 corners must be according to the convention stated the function doc string
 
-    corners = np.zeros((8, 3))# this is just a dummy value
+    center_x, center_y, center_z, dx, dy, dz, yaw = box
+    corners = np.zeros((8, 3))
+    
+    # Define the rotation matrix for yaw
+    cos_yaw = np.cos(yaw)
+    sin_yaw = np.sin(yaw)
+    rotation_matrix = np.array([
+        [cos_yaw, -sin_yaw, 0],
+        [sin_yaw, cos_yaw, 0],
+        [0, 0, 1]
+    ])
+    
+    # Define the corners relative to the center
+    relative_corners = np.array([
+        [-dx / 2, -dy / 2, -dz / 2],
+        [dx / 2, -dy / 2, -dz / 2],
+        [dx / 2, dy / 2, -dz / 2],
+        [-dx / 2, dy / 2, -dz / 2],
+        [-dx / 2, -dy / 2, dz / 2],
+        [dx / 2, -dy / 2, dz / 2],
+        [dx / 2, dy / 2, dz / 2],
+        [-dx / 2, dy / 2, dz / 2]
+    ])
+    
+    # Rotate and translate the corners
+    for i in range(8):
+        corners[i] = np.dot(rotation_matrix, relative_corners[i]) + [center_x, center_y, center_z]
     
     return corners
 
@@ -147,10 +173,11 @@ def box_to_pixels(boxes, bev_imsize, bev_resolution):
     top = [0,4,5,1]
     corners = corners[:, top, :2]
 
-    pixel_coordinates = []
 
     # TODO: find the pixel coordinates of the corners for all boxes
-    
+    pixel_coordinates = corners / bev_resolution
+    pixel_coordinates = pixel_coordinates.astype(int)
+    pixel_coordinates = pixel_coordinates + bev_imsize // 2
 
     # create mask to get all pixels occupied within corners
     mask = np.zeros(bev_imsize, dtype=np.uint8)
@@ -167,5 +194,8 @@ def points_to_pixels(filtered_points : np.ndarray, bev_imsize: np.ndarray , bev_
     '''
     # TODO: find pixel coordinates for the points in bev image
     
-    bev_pixels = []  # this is just a dummy value
+    bev_pixels = filtered_points[:, :2] / bev_resolution
+    bev_pixels = bev_pixels.astype(int)
+    bev_pixels = bev_pixels + bev_imsize // 2
+    
     return bev_pixels

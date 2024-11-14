@@ -22,7 +22,7 @@ CLASS_NAME_TO_COLOR = dict(zip(CLASS_NAMES, CLASS_COLORS))
 CLASS_NAME_TO_INDEX = dict(zip(CLASS_NAMES, range(len(CLASS_NAMES))))
 
 # Path extraction
-root_path = "/home/user/ECN_AUVE_labs/scenario1"
+root_path = "/home/ioloizou/ECN_AUVE_labs/scenario1"
 
 scenario = "Town01_type001_subtype0001_scenario00003"  
 
@@ -95,9 +95,13 @@ def get_available_point_clouds(n_frame, actors):
 
     # TODO: retrieve point clouds in actor frame for all actors and merge them into one point cloud in ego frame
     for actor in actors[1:]:
-        pass 
         # TODO: map `lidar_data_actor` from actor frame to ego frame
-        
+        lidar_data_actor = get_point_cloud(n_frame, actor)
+        actor_to_world = get_actor_T_world(actor, n_frame)
+        world_to_ego = np.linalg.inv(ego_to_world)
+        lidar_data_ego = apply_tf(actor_to_world @ world_to_ego, lidar_data_actor)
+        merged_pc = np.concatenate((merged_pc, lidar_data_ego), axis=0)
+
     return merged_pc
 
 def get_boxes_in_sensor_frame(n_frame, actor):
@@ -128,8 +132,17 @@ def get_boxes_in_actor_frame(n_frame, actor): # TODO
     boxes = get_boxes_in_sensor_frame(n_frame, actor)
     boxes = np.array(boxes).reshape(-1,8) #in sensor frame
 
-    # TODO: map `boxes` from sensor frame to actor frame
+    print(boxes[:, 3:])
 
+    # TODO: map `boxes` from sensor frame to actor frame
+    sensor_to_actor = get_sensor_T_actor(actor, n_frame)
+    boxes_xyz = apply_tf(sensor_to_actor, boxes[:, :3])
+
+    print(boxes_xyz.shape)
+    print(boxes[:, 3:].shape)
+
+    # Concatenate the remaining part of the boxes l, w, h, yaw, class
+    boxes = np.concatenate((boxes_xyz, boxes[:, 3:]), axis=1)
 
     return boxes
 
@@ -145,9 +158,16 @@ def get_available_boxes_in_ego_frame(n_frame, actors):
     boxes = get_boxes_in_actor_frame(n_frame, actors[0]) #in ego frame
     boxes = np.array(boxes).reshape(-1,8)
     ego_to_world = get_actor_T_world(actors[0], n_frame)
-    available_boxes_in_world_frame = boxes
+    available_boxes_in_ego_frame = boxes
 
-    # TODO : retrieve boxes in actor frame for all actors
+    # TODO : retrieve boxes in ego frame for all actors
+    for actor in actors[1:]:
+        actor_to_world = get_actor_T_world(actor, n_frame)
+        world_to_ego = np.linalg.inv(ego_to_world)
+        boxes = get_boxes_in_actor_frame(n_frame, actor)
+        boxes = np.array(boxes).reshape(-1,8)
+        boxes = apply_tf(actor_to_world @ world_to_ego, boxes)
+        available_boxes_in_ego_frame = np.concatenate((available_boxes_in_ego_frame, boxes), axis=0)
 
     return boxes
 
@@ -161,7 +181,9 @@ def filter_points(points: np.ndarray, range: np.ndarray):
     '''
     # TODO: filter points within the range
     
-    filtered_points = points # this is just a dummy value
+    xmin, ymin, zmin, xmax, ymax, zmax = range
+    mask = (points[:,0] >= xmin) & (points[:,0] <= xmax) & (points[:,1] >= ymin) & (points[:,1] <= ymax) & (points[:,2] >= zmin) & (points[:,2] <= zmax)
+    filtered_points = points[mask]
 
     return filtered_points
 
