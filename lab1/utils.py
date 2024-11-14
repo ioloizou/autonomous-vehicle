@@ -99,7 +99,7 @@ def get_available_point_clouds(n_frame, actors):
         lidar_data_actor = get_point_cloud(n_frame, actor)
         actor_to_world = get_actor_T_world(actor, n_frame)
         world_to_ego = np.linalg.inv(ego_to_world)
-        lidar_data_ego = apply_tf(actor_to_world @ world_to_ego, lidar_data_actor)
+        lidar_data_ego = apply_tf(world_to_ego @ actor_to_world, lidar_data_actor)
         merged_pc = np.concatenate((merged_pc, lidar_data_ego), axis=0)
 
     return merged_pc
@@ -132,14 +132,14 @@ def get_boxes_in_actor_frame(n_frame, actor): # TODO
     boxes = get_boxes_in_sensor_frame(n_frame, actor)
     boxes = np.array(boxes).reshape(-1,8) #in sensor frame
 
-    print(boxes[:, 3:])
+    # print(boxes[:, 3:])
 
     # TODO: map `boxes` from sensor frame to actor frame
     sensor_to_actor = get_sensor_T_actor(actor, n_frame)
     boxes_xyz = apply_tf(sensor_to_actor, boxes[:, :3])
 
-    print(boxes_xyz.shape)
-    print(boxes[:, 3:].shape)
+    # print(boxes_xyz.shape)
+    # print(boxes[:, 3:].shape)
 
     # Concatenate the remaining part of the boxes l, w, h, yaw, class
     boxes = np.concatenate((boxes_xyz, boxes[:, 3:]), axis=1)
@@ -166,10 +166,21 @@ def get_available_boxes_in_ego_frame(n_frame, actors):
         world_to_ego = np.linalg.inv(ego_to_world)
         boxes = get_boxes_in_actor_frame(n_frame, actor)
         boxes = np.array(boxes).reshape(-1,8)
-        boxes = apply_tf(actor_to_world @ world_to_ego, boxes)
+        
+        # Apply transformation to the position part (x, y, z)
+        boxes_xyz = apply_tf(world_to_ego @ actor_to_world, boxes[:, :3])
+        
+        # Apply rotation to the yaw angle
+        actor_to_ego_rot = (world_to_ego @ actor_to_world)[:3, :3]
+        boxes_yaw = boxes[:, 6]
+        boxes_yaw_ego = np.arctan2(actor_to_ego_rot[1, 0], actor_to_ego_rot[0, 0]) + boxes_yaw
+        
+        # Concatenate the transformed positions with the remaining columns (l, w, h, yaw, class)
+        boxes = np.concatenate((boxes_xyz, boxes[:, 3:6], boxes_yaw_ego[:, np.newaxis], boxes[:, 7:]), axis=1)
+        
         available_boxes_in_ego_frame = np.concatenate((available_boxes_in_ego_frame, boxes), axis=0)
 
-    return boxes
+    return available_boxes_in_ego_frame
 
 def filter_points(points: np.ndarray, range: np.ndarray):
     '''
