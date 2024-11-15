@@ -170,9 +170,10 @@ def box_to_pixels(boxes, bev_imsize, bev_resolution):
 
     # We take only top bev of the box
     corners = np.array(corners)
-    top = [0,4,5,1]
-    corners = corners[:, top, :2]
 
+    # Select the top face corners correctly
+    top = [4, 5, 6, 7]
+    corners = corners[:, top, :2]
 
     # TODO: find the pixel coordinates of the corners for all boxes
     pixel_coordinates = corners / bev_resolution
@@ -181,7 +182,8 @@ def box_to_pixels(boxes, bev_imsize, bev_resolution):
 
     # create mask to get all pixels occupied within corners
     mask = np.zeros(bev_imsize, dtype=np.uint8)
-    cv2.fillPoly(mask, np.array(pixel_coordinates), 255)
+    for box in pixel_coordinates:
+        cv2.fillPoly(mask, [box.reshape((-1, 1, 2))], 255)
     
     return mask
 
