@@ -165,22 +165,37 @@ def get_available_boxes_in_ego_frame(n_frame, actors):
         actor_to_world = get_actor_T_world(actor, n_frame)
         world_to_ego = np.linalg.inv(ego_to_world)
         boxes = get_boxes_in_actor_frame(n_frame, actor)
-        boxes = np.array(boxes).reshape(-1,8)
         
-        # Apply transformation to the position part (x, y, z)
-        boxes_xyz = apply_tf(world_to_ego @ actor_to_world, boxes[:, :3])
+        # Transform box positions to ego frame
+        boxes[:, :3] = apply_tf(world_to_ego @ actor_to_world, boxes[:, :3])
         
-        # Apply rotation to the yaw angle
+        # Transform yaw angles to ego frame
         actor_to_ego_rot = (world_to_ego @ actor_to_world)[:3, :3]
-        boxes_yaw = boxes[:, 6]
-        boxes_yaw_ego = np.arctan2(actor_to_ego_rot[1, 0], actor_to_ego_rot[0, 0]) + boxes_yaw
-        
-        # Concatenate the transformed positions with the remaining columns (l, w, h, yaw, class)
-        boxes = np.concatenate((boxes_xyz, boxes[:, 3:6], boxes_yaw_ego[:, np.newaxis], boxes[:, 7:]), axis=1)
+        boxes[:, 6] += np.arctan2(actor_to_ego_rot[1, 0], actor_to_ego_rot[0, 0])
         
         available_boxes_in_ego_frame = np.concatenate((available_boxes_in_ego_frame, boxes), axis=0)
 
-    return available_boxes_in_ego_frame
+
+    # Group the boxes by center position if they are close and then take the mean of the boxes to get the final boxes
+    # This is to remove duplicate boxes
+    unique_boxes = []
+    for box in available_boxes_in_ego_frame:
+        if len(unique_boxes) == 0:
+            unique_boxes.append(box)
+        else:
+            for i, unique_box in enumerate(unique_boxes):
+                if np.linalg.norm(box[:3] - unique_box[:3]) < 1.0:
+                    unique_boxes[i][:6] = (unique_box[:6] + box[:6]) / 2
+                    unique_boxes[i][6] = np.arctan2(
+                        (np.sin(unique_box[6]) + np.sin(box[6])) / 2,
+                        (np.cos(unique_box[6]) + np.cos(box[6])) / 2
+                    )
+                    unique_boxes[i][7] = unique_box[7]  # Keep the class the same
+                    break
+            else:
+                unique_boxes.append(box)
+    
+    return np.array(unique_boxes)
 
 def filter_points(points: np.ndarray, range: np.ndarray):
     '''
