@@ -12,9 +12,9 @@ def G2C_RGF(longitude, latitude, h) :
 
   # TODO : compute the coordinates of the point in the RGF93 frame
 
-  X = 0
-  Y = 0
-  Z = 0
+  X = (N + h) * np.cos(latitude) * np.cos(longitude)
+  Y = (N + h) * np.cos(latitude) * np.sin(longitude)
+  Z = (N * (1 - np.power(GRS_e,2)) + h) * np.sin(latitude)
 
   return np.array([X, Y, Z])
 
@@ -22,8 +22,13 @@ def C_RGF2ENU(P_ECEF, l, phi, h) :
   eO = G2C_RGF(l, phi, h)
   P_ECEF = P_ECEF[np.newaxis].T # (3,1)
 
+  sin_phi = np.sin(phi)
+  cos_phi = np.cos(phi)
+  sin_l = np.sin(l)
+  cos_l = np.cos(l)
   # TODO : compute the coordinates of the point in the local frame
-  oAe = np.eye(3)
+ 
+  oAe = np.array([[-sin_l, cos_l, 0], [-sin_phi * cos_l, -sin_phi * sin_l, cos_phi], [cos_phi * cos_l, cos_phi * sin_l, sin_phi]])
 
   P_ENU = oAe @ (P_ECEF -  eO[np.newaxis].T)
 
