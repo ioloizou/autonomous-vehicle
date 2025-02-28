@@ -16,7 +16,7 @@ CLASS_NAME_TO_COLOR = dict(zip(CLASS_NAMES, CLASS_COLORS))
 CLASS_NAME_TO_INDEX = dict(zip(CLASS_NAMES, range(len(CLASS_NAMES))))
 
 # Path extraction
-root_path = "/home/ioloizou/ECN_AUVE_labs/scenario1"
+root_path = "/home/ioloizou/autonomous-vehicles/scenario1"
 
 scenario = "Town01_type001_subtype0001_scenario00003"  
 
